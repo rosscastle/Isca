@@ -1,4 +1,4 @@
-!Chaim cg_drag
+!Chaim cg_drag with Stepehens cg_drag edits
 module cg_drag_mod
 
 use fms_mod,                only:  fms_init, mpp_pe, mpp_root_pe,  &
@@ -256,7 +256,8 @@ integer, dimension(:), allocatable :: diag_j, diag_i
 !   variables for netcdf diagnostic fields.
 !---------------------------------------------------------------------
 integer          :: id_kedx_cgwd, id_kedy_cgwd, id_bf_cgwd, &
-                    id_gwfx_cgwd, id_gwfy_cgwd
+!                    id_gwfx_cgwd, id_gwfy_cgwd
+                    id_gwfx_cgwd, id_gwfy_cgwd, id_source_level
 real             :: missing_value = -999.
 character(len=7) :: mod_name = 'cg_drag'
 
@@ -529,6 +530,10 @@ type(time_type),         intent(in)      :: Time
          register_diag_field (mod_name, 'kedy_cgwd', axes(1:3), Time, &
                'effective eddy viscosity from cg_drag', 'm^2/s',   &
                missing_value=missing_value)
+      id_source_level =  &
+         register_diag_field (mod_name, 'source_level', axes(1:2), Time, &
+               'effective eddy viscosity from cg_drag', 'm^2/s',   &
+               missing_value=missing_value)
 
 !--------------------------------------------------------------------
 !    allocate and define module variables to hold values across
@@ -733,7 +738,8 @@ real, dimension(:,:,:), intent(out)     :: gwfcng_x, gwfcng_y
         do j=1,jmax
           do i=1,imax
 ! The following index-offsets are needed in case a physics_window is being used.
-            iz0 = source_level(i +is-1,j+js-1)
+            !iz0 = source_level(i +is-1,j+js-1)
+            iz0 = source_level(i,j)
             dtdz(i,j,1) = (temp  (i,j,1) - temp  (i,j,2))/    &
                           (zfull(i,j,1) - zfull(i,j,2))
             do k=2,iz0
@@ -822,46 +828,46 @@ real, dimension(:,:,:), intent(out)     :: gwfcng_x, gwfcng_y
           gwd_v(is:ie,js:je,:) = gwfcng_y(:,:,:)
 
 
-#ifdef COL_DIAG
-!--------------------------------------------------------------------
-!  if column diagnostics are desired, determine if any columns are on
-!  this processor. if so, call column_diagnostics_header to write
-!  out location and timestamp information. then output desired
-!  quantities to the diag_unit file.
-!---------------------------------------------------------------------
-        if (column_diagnostics_desired) then
-          do j=1,jmax
-            if (do_column_diagnostics(j+js-1)) then
-              do nn=1,num_diag_pts
-                if (js + j - 1 == diag_j(nn)) then
-                  call column_diagnostics_header   &
-                       (mod_name, diag_units(nn), Time, nn, diag_lon, &
-                        diag_lat, diag_i, diag_j)
-                  iz0 = source_level (diag_i(nn), j)
-                  write (diag_units(nn),'(a, i5)')    &
-                                              '  source_level  =', iz0
-                  write (diag_units(nn),'(a)')     &
-                         '   k         u           z        density&
-		         &         bf      gwforcing'
-                  do k=0,iz0
-                    write (diag_units(nn), '(i5, 2x, 5e12.5)')   &
-                                       k,                         &
-                                       zu       (diag_i(nn),j,k), &
-                                       zzchm    (diag_i(nn),j,k), &
-                                       zden     (diag_i(nn),j,k), &
-                                       zbf      (diag_i(nn),j,k), &
-                                       gwd_xtnd (diag_i(nn),j,k)
-                  end do
-                  write (diag_units(nn), '(i5, 14x, 2e12.5)')     &
-                                       iz0+1,                       &
-                                       zzchm  (diag_i(nn),j,iz0+1), &
-                                       zden   (diag_i(nn),j,iz0+1)
-                endif
-              end do  ! (nn loop)
-            endif    ! (do_column_diagnostics)
-          end do   ! (j loop)
-        endif    ! (column_diagnostics_desired)
-#endif
+! #ifdef COL_DIAG
+! !--------------------------------------------------------------------
+! !  if column diagnostics are desired, determine if any columns are on
+! !  this processor. if so, call column_diagnostics_header to write
+! !  out location and timestamp information. then output desired
+! !  quantities to the diag_unit file.
+! !---------------------------------------------------------------------
+!         if (column_diagnostics_desired) then
+!           do j=1,jmax
+!             if (do_column_diagnostics(j+js-1)) then
+!               do nn=1,num_diag_pts
+!                 if (js + j - 1 == diag_j(nn)) then
+!                   call column_diagnostics_header   &
+!                        (mod_name, diag_units(nn), Time, nn, diag_lon, &
+!                         diag_lat, diag_i, diag_j)
+!                   iz0 = source_level (diag_i(nn), j)
+!                   write (diag_units(nn),'(a, i5)')    &
+!                                               '  source_level  =', iz0
+!                   write (diag_units(nn),'(a)')     &
+!                          '   k         u           z        density&
+! 		         &         bf      gwforcing'
+!                   do k=0,iz0
+!                     write (diag_units(nn), '(i5, 2x, 5e12.5)')   &
+!                                        k,                         &
+!                                        zu       (diag_i(nn),j,k), &
+!                                        zzchm    (diag_i(nn),j,k), &
+!                                        zden     (diag_i(nn),j,k), &
+!                                        zbf      (diag_i(nn),j,k), &
+!                                        gwd_xtnd (diag_i(nn),j,k)
+!                   end do
+!                   write (diag_units(nn), '(i5, 14x, 2e12.5)')     &
+!                                        iz0+1,                       &
+!                                        zzchm  (diag_i(nn),j,iz0+1), &
+!                                        zden   (diag_i(nn),j,iz0+1)
+!                 endif
+!               end do  ! (nn loop)
+!             endif    ! (do_column_diagnostics)
+!           end do   ! (j loop)
+!         endif    ! (column_diagnostics_desired)
+! #endif
 
 
 !--------------------------------------------------------------------
@@ -871,27 +877,29 @@ real, dimension(:,:,:), intent(out)     :: gwfcng_x, gwfcng_y
 !-------------------------------------------------------------------
 
           if (id_kedx_cgwd > 0) then
-            used = send_data (id_kedx_cgwd, ked_gwfc_x, Time, is, js, 1)
+            used = send_data (id_kedx_cgwd, ked_gwfc_x, Time)!, is, js, 1)
           endif
 
           if (id_kedy_cgwd > 0) then
-            used = send_data (id_kedy_cgwd, ked_gwfc_y, Time, is, js, 1)
+            used = send_data (id_kedy_cgwd, ked_gwfc_y, Time)!, is, js, 1)
           endif
 
-
+          if (id_source_level > 0) then
+             used = send_data (id_source_level, real(source_level), Time)
+          endif
 
 !--------------------------------------------------------------------
 !    save any other netcdf file diagnostics that are desired.
 !--------------------------------------------------------------------
         if (id_bf_cgwd > 0) then
-          used = send_data (id_bf_cgwd,  zbf(:,:,1:), Time, is, js )
+          used = send_data (id_bf_cgwd,  zbf(:,:,1:), Time)!, is, js )
         endif
 
         if (id_gwfx_cgwd > 0) then
-          used = send_data (id_gwfx_cgwd, gwfcng_x, Time, is, js, 1)
+          used = send_data (id_gwfx_cgwd, gwfcng_x, Time)!, is, js, 1)
         endif
         if (id_gwfy_cgwd > 0) then
-          used = send_data (id_gwfy_cgwd, gwfcng_y, Time, is, js, 1)
+          used = send_data (id_gwfy_cgwd, gwfcng_y, Time)!, is, js, 1)
         endif
 
 
@@ -1347,8 +1355,9 @@ real,    dimension(:,:,0:),  intent(out)            :: ked
 
 
         do i=1,size(u,1)
-!added by cig, january 2017
-	  if ((lat(i+is-1,j+js-1) <= dphin) .and. (lat(i+is-1,j+js-1) >= dphis)) then
+!added by cig, january 2017, Changed indicies RC 2019
+	  !if ((lat(i+is-1,j+js-1) <= dphin) .and. (lat(i+is-1,j+js-1) >= dphis)) then
+      if ((lat(i,j) <= dphin) .and. (lat(i,j) >= dphis)) then
                 cwthis=cwtropics
 		Bnthis=0.
 		flag=0
@@ -1358,11 +1367,16 @@ real,    dimension(:,:,0:),  intent(out)            :: ked
 		flagthis=flag
  	  endif
 
-! The following index-offsets are needed in case a physics_window is being used.
-          iz0 = source_level(i+is-1,j+js-1)
-	  iztop = damp_level(i+is-1,j+js-1)
-          ampl= source_amp(i+is-1,j+js-1)
+! RC Changed Indicies The following index-offsets are needed in case a physics_window is being used.
+!          iz0 = source_level(i+is-1,j+js-1)
+!	  iztop = damp_level(i+is-1,j+js-1)
+!          ampl= source_amp(i+is-1,j+js-1)
 
+! The following index-offsets are needed in case a physics_window is being used.
+          iz0 = source_level(i,j)
+          ampl= source_amp(i,j)
+! DO I ADD iztop=damp_level(i,j)?
+     iztop=damp_level(i,j)
 !--------------------------------------------------------------------
 !    define wave momentum flux (B0) at source level for each phase
 !    speed n, and the sum over all phase speeds (Bsum), which is needed
