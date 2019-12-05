@@ -369,13 +369,14 @@ contains
 
 !#######################################################################
 
- subroutine damping_driver_init ( lonb, latb, pref, axes, Time, sgsmtn)
+ subroutine damping_driver_init (is, ie, js, je, lonb, latb, pref, axes, Time, sgsmtn)
 
  real,            intent(in) :: lonb(:), latb(:), pref(:)
  integer, dimension(4), intent(in) :: axes
  !integer,         intent(in) :: axes(4)
  type(time_type), intent(in) :: Time
  real, dimension(:,:), intent(out) :: sgsmtn
+ integer,              intent(in) :: is, ie, js, je
 !-----------------------------------------------------------------------
 !     lonb  = longitude in radians of the grid box edges
 !     latb  = latitude  in radians of the grid box edges
@@ -436,7 +437,7 @@ contains
 !----- Alexander-Dunkerton gravity wave drag -----
 
    if (do_cg_drag)  then
-     call cg_drag_init (lonb, latb, pref, Time=Time, axes=axes)
+     call cg_drag_init (is, ie, js, je, lonb, latb, pref, Time=Time, axes=axes)
    endif
 
 !-----------------------------------------------------------------------
