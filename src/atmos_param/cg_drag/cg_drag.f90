@@ -280,8 +280,8 @@ logical          :: module_is_initialized=.false.
 
 !####################################################################
 
-subroutine cg_drag_init (lonb, latb, pref, Time, axes)
-
+!subroutine cg_drag_init (lonb, latb, pref, Time, axes) RC 5/12/19
+subroutine cg_drag_init (is, ie, js, je, lonb, latb, pref, Time, axes)
 
 !-------------------------------------------------------------------
 !   cg_drag_init is the constructor for cg_drag_mod.
@@ -292,6 +292,7 @@ subroutine cg_drag_init (lonb, latb, pref, Time, axes)
 real,    dimension(:),   intent(in)      :: lonb, latb, pref
 integer, dimension(4),   intent(in)      :: axes
 type(time_type),         intent(in)      :: Time
+integer,                 intent(in)      :: is, ie, js, je !RC 5/12/19
 !-------------------------------------------------------------------
 
 !-------------------------------------------------------------------
@@ -539,8 +540,11 @@ type(time_type),         intent(in)      :: Time
 !    allocate and define module variables to hold values across
 !    timesteps, in the event that cg_drag is not called on every step.
 !--------------------------------------------------------------------
-     allocate ( gwd_u(idf,jdf,kmax) )
-     allocate ( gwd_v(idf,jdf,kmax) )
+
+!     allocate ( gwd_u(idf,jdf,kmax) ) RC 06/12/19
+!     allocate ( gwd_v(idf,jdf,kmax) ) RC 06/12/19
+     allocate ( gwd_u(is:ie,js:je,kmax) )
+     allocate ( gwd_v(is:ie,js:je,kmax) )
 
 !--------------------------------------------------------------------
 !    if present, read the restart data file.
@@ -728,7 +732,7 @@ real, dimension(:,:,:), intent(out)     :: gwfcng_x, gwfcng_y
 
 
       if (cgdrag_alarm <= 0) then
-
+          write(6,*) 'GWD Calculated', cgdrag_alarm
 !-----------------------------------------------------------------------
 !    calculate temperature lapse rate. do one-sided differences over
 !    delta z at upper boundary and centered differences over 2 delta z
@@ -910,6 +914,7 @@ real, dimension(:,:,:), intent(out)     :: gwfcng_x, gwfcng_y
 !    and return to the calling subroutine.
 !--------------------------------------------------------------------
       else   ! (cgdrag_alarm <= 0)
+        write(6,*) 'GWD not recalculated',cgdrag_alarm
         gwfcng_x(:,:,:) = gwd_u(is:ie,js:je,:)
         gwfcng_y(:,:,:) = gwd_v(is:ie,js:je,:)
      endif  ! (cgdrag_alarm <= 0)
