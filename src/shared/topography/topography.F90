@@ -706,6 +706,10 @@ end interface
  real :: zout2(size(zout,1),size(zout,2))
 
     call input_data ( topog_file, xdat, ydat, zdat )
+    
+!RC CONVERSION FROM DEGREES TO RADIANS
+    ydat=ydat*(3.1415926/180.0) !Need to do this more delicately
+    xdat=xdat*(3.1415926/180.0) !Perhaps a namelist option.
 
     call horiz_interp ( zdat, xdat, ydat, blon, blat, zout )
 

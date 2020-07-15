@@ -318,20 +318,19 @@ if ( .not.do_mcm_mg_drag ) then
 !  calculate base flux
     call mgwd_base_flux (is,js,uwnd,vwnd,temp,pfull,phalf,ktop,kbtm,theta, &
          &               xn,yn,taub)
-
 !  split taub in to x and y components
     taubx(:,:) = taub(:,:)*xn(:,:)
     tauby(:,:) = taub(:,:)*yn(:,:)
-
+    if (any(isnan(taub(:,:)))) then
+      write(6,*) 'NaN found mg_drag taub'
+    endif
 !  calculate saturation flux profile
     call mgwd_satur_flux (uwnd,vwnd,temp,theta,ktop,kbtm, &
          &                xn,yn,taub,pfull, phalf,zfull,zhalf,vsamp,taus)
-
 !  calculate mountain gravity wave drag tendency contributions
     call mgwd_tend (is,js,xn,yn,taub,phalf,taus,dtaux,dtauy, tausf)
-
+write(6,*) 'tend_called'
 else if ( do_mcm_mg_drag ) then
-
     if(present(kbot)) then
       call error_mesg ('mg_drag','kbot cannot be present in the calling arguments when using the Manabe Climate Model option',FATAL)
     endif
@@ -463,7 +462,7 @@ if (do_conserve_energy) then
 else
   dtemp = 0.0
 endif
-
+write(6,*) 'end before return'
 return
 end subroutine mg_drag
 !=======================================================================
@@ -593,7 +592,32 @@ real grav2, xli, a, small
              fr (:,:) = 0.0
              g  (:,:) = 0.0
            endwhere
-
+           write(6,*) 'gmax', gmax, 'a', a 
+           if (any(isnan(taub(:,:)))) then
+              write(6,*) 'NaN found mgwd_base_flux taub'
+           endif
+           if (any(isnan(ulow(:,:)))) then
+              write(6,*) 'NaN found mgwd_base_flux ulow'
+           endif
+           if (any(isnan(bnv(:,:)))) then
+              write(6,*) 'NaN found mgwd_base_flux bnv'
+           endif
+           if (any(isnan(g(:,:)))) then
+              write(6,*) 'NaN found mgwd_base_flux g'
+              !write(6,*) g(:,:)
+              !! NEXT THING TO DO IS FIND WHERE THE NAN IS (INDEX) SO WE CAN FIND THE FR VALUE THAT CAUSES IT.
+              !! REMEMBER ITS A     MEMORY    ISSUE. 
+           endif
+           if (any(isnan(fr(:,:)))) then
+              write(6,*) 'NaN found mgwd_base_flux fr(:,:)'
+           elseif (any(fr(:,:)==1)) then
+              write(6,*) 'NaN found mgwd_base_flux fr = 1'
+           elseif (any(fr(:,:)==-1)) then
+              write(6,*) 'NaN found mgwd_base_flux fr = -1'
+           else
+              write(6,*) 'fr fine'
+              !write(6,*) fr(:,:)
+           endif
 end subroutine mgwd_base_flux
 
 !#############################################################################      
@@ -897,7 +921,10 @@ subroutine mgwd_tend (is,js,xn,yn,taub,phalf,taus,dtaux,dtauy,tausf)
 
   kdim = size( dtaux, 3 )
   kdimp1 = kdim + 1
-
+  
+  if (any(isnan(taub(:,:)))) then
+    write(6,*) 'NaN found taub'
+  endif
 
 !-----------------------------------------------------------------------
 !     <><><><><><><><>   MOMENTUM FLUX CODE   <><><><><><><><>
@@ -907,7 +934,9 @@ subroutine mgwd_tend (is,js,xn,yn,taub,phalf,taus,dtaux,dtauy,tausf)
 !     -----------------------------
 
         taup (:,:,kdimp1) = taub(:,:)
-
+        if (any(isnan(taup (:,:,:)))) then
+          write(6,*) 'NaN found taup = taub'
+        endif
       do kd=2,kdimp1
         k = kdimp1-kd+1
         tausf(:,:,k)=taup(:,:,k+1)
@@ -926,11 +955,51 @@ subroutine mgwd_tend (is,js,xn,yn,taub,phalf,taus,dtaux,dtauy,tausf)
        do k=1,kdim
           dterm(:,:,k) = grav*(taup (:,:,k+1)-taup (:,:,k)) &
      &                     /(phalf(:,:,k+1)-phalf(:,:,k))
- 
+          if (any(isnan(dterm(:,:,k)))) then
+              write(6,*) 'NaN found in dterm(:,:', k
+          endif
+          if (k==1) then
+            write(6,*) 'k=',k
+            if (any(isnan(taup (:,:,k+1)))) then
+              write(6,*) 'NaN found taup (:,:,k+1)'
+              !write(6,*) taup (:,:,k+1)
+            endif
+            if (any(isnan(taup (:,:,k)))) then
+              write(6,*) 'NaN found taup (:,:,k)'
+              !write(6,*) taup (:,:,k)
+            endif
+            if (any(isnan(phalf(:,:,k+1)))) then
+              write(6,*) 'NaN found phalf(:,:,k+1)'
+            endif
+            if (any(isnan(phalf(:,:,k)))) then
+              write(6,*) 'NaN found phalf(:,:,k)'
+            endif
+           endif
         dtaux(:,:,k) = xn(:,:)*dterm(:,:,k)
         dtauy(:,:,k) = yn(:,:)*dterm(:,:,k)
+        ! Setting artificially to 0 ! RC Test
+        !dtaux(:,:,k) = 0
+        !dtauy(:,:,k) = 0
        end do
-
+       !Check for NaNs
+       if (any(isnan(dtaux))) then
+          write(6,*) 'NaN found dtauX'
+          if (any(isnan(xn(:,:)))) then
+            write(6,*) 'NaN found xn'
+          endif
+          if (any(isnan(dterm(:,:,:)))) then
+            write(6,*) 'NaN found dterm X'
+          endif
+       endif
+       if (any(isnan(dtauy))) then
+        write(6,*) 'NaN found dtauY'
+        if (any(isnan(yn(:,:)))) then
+          write(6,*) 'NaN found yn'
+        endif
+        if (any(isnan(dterm(:,:,:)))) then
+          write(6,*) 'NaN found dterm Y'
+        endif
+       endif
 !  print sample output
 !            print*, ' mgdrag output for i,j=', is,js
 !            print *,'taub = ', taub(is,js)     
@@ -939,7 +1008,7 @@ subroutine mgwd_tend (is,js,xn,yn,taub,phalf,taus,dtaux,dtauy,tausf)
 
 
 !     ***********************************************************
-
+!write(6,*) dtaux(:,1,1)
 end subroutine mgwd_tend
 
 !#######################################################################
