@@ -221,6 +221,7 @@ integer, dimension(size(uwnd,1),size(uwnd,2))              :: ntop
 real,    dimension(size(uwnd,1),size(uwnd,2),size(uwnd,3)) :: th, sh_ang, test
 real,    dimension(size(uwnd,1),size(uwnd,2),size(uwnd,3)) :: sigma, del_sigma
 !real,    dimension(size(uwnd,1),size(uwnd,2),size(uwnd,3)+1) :: sigma_half
+!real,    dimension(size( uwnd, 1 ), size( uwnd, 2 ))                             :: GhprimeT
 
 !---------------------------------------------------------------------
 
@@ -314,8 +315,9 @@ if ( .not.do_mcm_mg_drag ) then
     ktop(:,:) = min(ktop(:,:),(kbtm(:,:)-1) )
 !     print *,'ptop=', ptop
 !     print *,'ktop=', ktop
-
 !  calculate base flux
+    !write(6,*) Ghprime(is:ie,js:je)
+    !GhprimeT(:,:) = Ghprime(is:ie,js:je)
     call mgwd_base_flux (is,js,uwnd,vwnd,temp,pfull,phalf,ktop,kbtm,theta, &
          &               xn,yn,taub)
 !  split taub in to x and y components
@@ -462,7 +464,7 @@ if (do_conserve_energy) then
 else
   dtemp = 0.0
 endif
-write(6,*) 'end before return'
+!write(6,*) 'end before return'
 return
 end subroutine mg_drag
 !=======================================================================
@@ -470,7 +472,7 @@ end subroutine mg_drag
 !#############################################################################      
  
 subroutine mgwd_base_flux (is,js,uwnd,vwnd,temp,pfull,phalf,ktop,kbtm,  &
-                          theta,xn,yn,taub)
+                          theta,xn,yn,taub) !Add Ghprime?
                                   
 
 
@@ -492,12 +494,12 @@ subroutine mgwd_base_flux (is,js,uwnd,vwnd,temp,pfull,phalf,ktop,kbtm,  &
 !=======================================================================
 !  (Intent local)
 real , dimension(size(uwnd,1),size(uwnd,2)) :: sumw, delp, ulow, bnv, &
-     &  hprime, fr, g, ubar, vbar, bnv2 
+     &  hprime, fr, g, ubar, vbar, bnv2
 real grav2, xli, a, small
  integer idim, jdim,kdim,ie, je
 !-----------------------------------------------------------------------
 !  type loop indicies
- integer i, j, k, kb, kt, kbp1, ktm1 
+ integer i, j, k, kb, kt, kbp1, ktm1
 !-----------------------------------------------------------------------
 !===================================================================
 
@@ -511,7 +513,8 @@ real grav2, xli, a, small
   ie = is + idim - 1
   je = js + jdim - 1
   hprime(:,:) = Ghprime(is:ie,js:je)
-
+  !hprime(:,:) = GhprimeT(:,:)
+  !write(6,*) 'size GhprimeT', size(GhprimeT,1), size(GhprimeT,2)
 ! define local scalar variables
   xli=1.0/xl_mtn
   grav2=grav*grav
@@ -592,32 +595,60 @@ real grav2, xli, a, small
              fr (:,:) = 0.0
              g  (:,:) = 0.0
            endwhere
-           write(6,*) 'gmax', gmax, 'a', a 
+           !! Lets set any infinitessimal fr's to 0 artificially!!
+           !where ( abs(fr(:,:)) .lt. 0.0001)
+           !   fr (:,:) = 0.0
+           !endwhere
+           !where ( abs(fr(:,:)) .gt. 10000000.0)
+           !   fr (:,:) = 0.0
+           !endwhere
+           !!
+           !!fr(:,:) = 0
+           !write(6,*) 'gmax', gmax, 'a', a 
+           
            if (any(isnan(taub(:,:)))) then
               write(6,*) 'NaN found mgwd_base_flux taub'
+              !write(6,*) 'FIND NaNs'
+              !write(6,*) taub(:,:)
+              do j=1,jdim
+                do i=1,idim
+                  if (isnan(taub(i,j))) then
+                    write(6,*) 'i', i, 'j', j
+                    write(6,*) 'taub', taub(i,j)
+                    !write(6,*) 'g', g(i,j)
+                    !write(6,*) 'fr', fr(i,j)
+                    write(6,*) 'hprime', hprime(i,j)
+                  endif
+                end do
+              end do
            endif
+           write(6,*) 'hprime'
+           write(6,*) hprime(68,1), hprime(52,2), hprime(36,3), hprime(20,4), hprime(4,5)
+           write(6,*) 'hprime good'
+           write(6,*) hprime(67,2) 
            if (any(isnan(ulow(:,:)))) then
-              write(6,*) 'NaN found mgwd_base_flux ulow'
+              !write(6,*) 'NaN found mgwd_base_flux ulow'
            endif
            if (any(isnan(bnv(:,:)))) then
-              write(6,*) 'NaN found mgwd_base_flux bnv'
+              !write(6,*) 'NaN found mgwd_base_flux bnv'
            endif
            if (any(isnan(g(:,:)))) then
-              write(6,*) 'NaN found mgwd_base_flux g'
+              !write(6,*) 'NaN found mgwd_base_flux g'
               !write(6,*) g(:,:)
               !! NEXT THING TO DO IS FIND WHERE THE NAN IS (INDEX) SO WE CAN FIND THE FR VALUE THAT CAUSES IT.
               !! REMEMBER ITS A     MEMORY    ISSUE. 
            endif
            if (any(isnan(fr(:,:)))) then
-              write(6,*) 'NaN found mgwd_base_flux fr(:,:)'
+              !write(6,*) 'NaN found mgwd_base_flux fr(:,:)'
            elseif (any(fr(:,:)==1)) then
-              write(6,*) 'NaN found mgwd_base_flux fr = 1'
+              !write(6,*) 'NaN found mgwd_base_flux fr = 1'
            elseif (any(fr(:,:)==-1)) then
-              write(6,*) 'NaN found mgwd_base_flux fr = -1'
+              !write(6,*) 'NaN found mgwd_base_flux fr = -1'
            else
-              write(6,*) 'fr fine'
+              !write(6,*) 'fr fine'
               !write(6,*) fr(:,:)
            endif
+           !write(6,*) hprime(:,:)
 end subroutine mgwd_base_flux
 
 !#############################################################################      
@@ -923,7 +954,7 @@ subroutine mgwd_tend (is,js,xn,yn,taub,phalf,taus,dtaux,dtauy,tausf)
   kdimp1 = kdim + 1
   
   if (any(isnan(taub(:,:)))) then
-    write(6,*) 'NaN found taub'
+    !write(6,*) 'NaN found taub'
   endif
 
 !-----------------------------------------------------------------------
@@ -935,7 +966,7 @@ subroutine mgwd_tend (is,js,xn,yn,taub,phalf,taus,dtaux,dtauy,tausf)
 
         taup (:,:,kdimp1) = taub(:,:)
         if (any(isnan(taup (:,:,:)))) then
-          write(6,*) 'NaN found taup = taub'
+          !write(6,*) 'NaN found taup = taub'
         endif
       do kd=2,kdimp1
         k = kdimp1-kd+1
@@ -956,23 +987,23 @@ subroutine mgwd_tend (is,js,xn,yn,taub,phalf,taus,dtaux,dtauy,tausf)
           dterm(:,:,k) = grav*(taup (:,:,k+1)-taup (:,:,k)) &
      &                     /(phalf(:,:,k+1)-phalf(:,:,k))
           if (any(isnan(dterm(:,:,k)))) then
-              write(6,*) 'NaN found in dterm(:,:', k
+              !write(6,*) 'NaN found in dterm(:,:', k
           endif
           if (k==1) then
-            write(6,*) 'k=',k
+            !write(6,*) 'k=',k
             if (any(isnan(taup (:,:,k+1)))) then
-              write(6,*) 'NaN found taup (:,:,k+1)'
+              !write(6,*) 'NaN found taup (:,:,k+1)'
               !write(6,*) taup (:,:,k+1)
             endif
             if (any(isnan(taup (:,:,k)))) then
-              write(6,*) 'NaN found taup (:,:,k)'
+              !write(6,*) 'NaN found taup (:,:,k)'
               !write(6,*) taup (:,:,k)
             endif
             if (any(isnan(phalf(:,:,k+1)))) then
-              write(6,*) 'NaN found phalf(:,:,k+1)'
+              !write(6,*) 'NaN found phalf(:,:,k+1)'
             endif
             if (any(isnan(phalf(:,:,k)))) then
-              write(6,*) 'NaN found phalf(:,:,k)'
+              !write(6,*) 'NaN found phalf(:,:,k)'
             endif
            endif
         dtaux(:,:,k) = xn(:,:)*dterm(:,:,k)
@@ -983,21 +1014,21 @@ subroutine mgwd_tend (is,js,xn,yn,taub,phalf,taus,dtaux,dtauy,tausf)
        end do
        !Check for NaNs
        if (any(isnan(dtaux))) then
-          write(6,*) 'NaN found dtauX'
+          !write(6,*) 'NaN found dtauX'
           if (any(isnan(xn(:,:)))) then
-            write(6,*) 'NaN found xn'
+            !write(6,*) 'NaN found xn'
           endif
           if (any(isnan(dterm(:,:,:)))) then
-            write(6,*) 'NaN found dterm X'
+            !write(6,*) 'NaN found dterm X'
           endif
        endif
        if (any(isnan(dtauy))) then
-        write(6,*) 'NaN found dtauY'
+        !write(6,*) 'NaN found dtauY'
         if (any(isnan(yn(:,:)))) then
-          write(6,*) 'NaN found yn'
+          !write(6,*) 'NaN found yn'
         endif
         if (any(isnan(dterm(:,:,:)))) then
-          write(6,*) 'NaN found dterm Y'
+          !write(6,*) 'NaN found dterm Y'
         endif
        endif
 !  print sample output
@@ -1109,10 +1140,12 @@ if(module_is_initialized) return
     call error_mesg ('mg_drag_init','"'//trim(source_of_sgsmtn)//'"'// &
           ' is not a valid value for source_of_sgsmtn', FATAL)
   endif
-
+write(6,*) 'Ghprime Size INIT'
+write(6,*) size(Ghprime,1), size(Ghprime, 2)
+write(6,*) Ghprime(1,1)
 ! return sub-grid scale topography?
   if (present(hprime)) hprime = Ghprime
- 
+
 !=====================================================================
   end subroutine mg_drag_init
 
