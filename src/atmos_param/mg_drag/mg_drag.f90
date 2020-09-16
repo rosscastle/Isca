@@ -953,7 +953,7 @@ end subroutine mgwd_tend
 
 !#######################################################################
 
-  subroutine mg_drag_init( lonb, latb, hprime )
+  subroutine mg_drag_init(is, ie, js, je, lonb, latb, hprime)
 
 !=======================================================================
 ! ***** INITIALIZE Mountain Gravity Wave Drag
@@ -964,6 +964,7 @@ end subroutine mgwd_tend
 !     lonb  = longitude in radians of the grid box edges
 !     latb  = latitude  in radians of the grid box edges
 !---------------------------------------------------------------------
+ integer, intent(in) :: is, ie, js, je
  real, intent(in), dimension(:) :: lonb, latb
  
 !---------------------------------------------------------------------
@@ -1015,8 +1016,11 @@ if(module_is_initialized) return
 
   ix = size(lonb(:)) - 1
   iy = size(latb(:)) - 1
-
-  allocate( Ghprime(ix,iy) ) ; Ghprime = 0.0
+  !write(6,*) latb(:)
+  !write(6,*) lonb(:)
+  !allocate( Ghprime(ix,iy) ) ; Ghprime = 0.0
+  allocate( Ghprime(is:ie,js:je) ) ; Ghprime = 0.0
+  !write(6,*) Ghprime(1,50:53)
   
 !-------------------------------------------------------------------
   module_is_initialized = .true.
@@ -1054,7 +1058,8 @@ write(6,*) size(Ghprime,1), size(Ghprime, 2)
 write(6,*) Ghprime(1,1)
 ! return sub-grid scale topography?
   if (present(hprime)) hprime = Ghprime
-
+write(6,*) 'Ghprime'
+write(6,*) Ghprime(1,50:53)
 !=====================================================================
   end subroutine mg_drag_init
 

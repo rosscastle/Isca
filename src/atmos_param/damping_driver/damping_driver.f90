@@ -366,12 +366,13 @@ contains
 
 !#######################################################################
 
- subroutine damping_driver_init ( lonb, latb, pref, axes, Time, sgsmtn)
+ subroutine damping_driver_init ( lonb, latb, pref, axes, Time, sgsmtn, is, ie, js, je)
 
  real,            intent(in) :: lonb(:), latb(:), pref(:)
  integer,         intent(in) :: axes(4)
  type(time_type), intent(in) :: Time
  real, dimension(:,:), intent(out) :: sgsmtn
+ integer,         intent(in) :: is, ie, js, je 
 !-----------------------------------------------------------------------
 !     lonb  = longitude in radians of the grid box edges
 !     latb  = latitude  in radians of the grid box edges
@@ -426,7 +427,7 @@ contains
 !-----------------------------------------------------------------------
 !----- mountain gravity wave drag -----
 
-   if (do_mg_drag) call mg_drag_init (lonb, latb, sgsmtn)
+   if (do_mg_drag) call mg_drag_init (is, ie, js, je, lonb, latb, sgsmtn)
 
 !--------------------------------------------------------------------
 !----- Alexander-Dunkerton gravity wave drag -----
