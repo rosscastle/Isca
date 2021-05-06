@@ -1008,7 +1008,7 @@ if(module_is_initialized) return
   ix = size(lonb(:)) - 1
   iy = size(latb(:)) - 1
 
-  allocate( Ghprime(ix,iy) ) ; Ghprime = 0.0
+  allocate( Ghprime(is:ie,js:je) ) ; Ghprime = 0.0
 
 !-------------------------------------------------------------------
   module_is_initialized = .true.
