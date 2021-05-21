@@ -464,6 +464,11 @@ else
   dtemp = 0.0
 endif
 
+! Temperature tendencies crashing model due to size? Add a minimum size at x10-11.
+where (dtemp<=1E-11)
+    dtemp = 0.0
+end where
+
 return
 end subroutine mg_drag
 !=======================================================================
