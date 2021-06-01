@@ -935,7 +935,14 @@ subroutine mgwd_tend (is,js,xn,yn,taub,phalf,taus,dtaux,dtauy,tausf)
         dtaux(:,:,k) = xn(:,:)*dterm(:,:,k)
         dtauy(:,:,k) = yn(:,:)*dterm(:,:,k)
        end do
+      !  ! RC Added to make stable at higher values of gmax (above 1) REMOVE AS UNREALISTIC!!
+      !  where (dtaux>0.001)
+      !  dtaux = 0.001
+      !  end where
 
+      !  where (dtaux<-0.001)
+      !  dtaux = -0.001
+      !  end where
 !  print sample output
 !            print*, ' mgdrag output for i,j=', is,js
 !            print *,'taub = ', taub(is,js)
@@ -1047,9 +1054,9 @@ if(module_is_initialized) return
           ' is not a valid value for source_of_sgsmtn', FATAL)
   endif
   
-  ! RC Added to make stable at higher values of gmax (above 1)
-  where (Ghprime>1500)
-    Ghprime = 1500
+  ! RC Added to make stable at higher values of gmax (above 1) 1500 STILL HAD ISSUES, TRY 1200
+  where (Ghprime>1200)
+    Ghprime = 1200
   end where
 ! return sub-grid scale topography?
   if (present(hprime)) hprime = Ghprime
