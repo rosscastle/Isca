@@ -1053,10 +1053,10 @@ if(module_is_initialized) return
     call error_mesg ('mg_drag_init','"'//trim(source_of_sgsmtn)//'"'// &
           ' is not a valid value for source_of_sgsmtn', FATAL)
   endif
-  
+
   ! RC Added to make stable at higher values of gmax (above 1) 1500 STILL HAD ISSUES, TRY 1200
-  where (Ghprime>1200)
-    Ghprime = 1200
+  where (Ghprime>1000)
+    Ghprime = 1000
   end where
 ! return sub-grid scale topography?
   if (present(hprime)) hprime = Ghprime
