@@ -65,16 +65,28 @@ module mg_drag_mod
       ,low_lev_frac = .23
 
 real  ::  flux_cut_level= 0.0
+real  ::  tp_level = .9
+
+integer  ::  ideal_lat_cent_NH = 48
+integer  ::  ideal_lat_cent_SH = 17
+integer  ::  ideal_pfull_cent = 19
+real  ::  ideal_strength = -0.00002
 
 logical :: do_netcdf_restart = .true.
 logical :: do_conserve_energy = .false.
 logical :: do_mcm_mg_drag = .false.
+logical :: no_strat_drag = .false.
+logical :: no_trop_drag = .false.
+logical :: do_idealised_NH = .false.
+logical :: do_idealised_SH = .false.
 character(len=128) :: source_of_sgsmtn = 'input'
 
     namelist / mg_drag_nml / do_netcdf_restart,  &
                              xl_mtn, gmax, acoef, rho, low_lev_frac, &
                              do_conserve_energy, do_mcm_mg_drag,     &
-                             source_of_sgsmtn, flux_cut_level
+                             source_of_sgsmtn, flux_cut_level, &
+                             no_strat_drag, no_trop_drag, tp_level, &
+                             do_idealised_NH, do_idealised_SH, ideal_lat_cent_NH, ideal_lat_cent_SH, ideal_pfull_cent, ideal_strength
 
  public mg_drag, mg_drag_init, mg_drag_end
 
@@ -229,7 +241,6 @@ real,    dimension(size(uwnd,1),size(uwnd,2),size(uwnd,3)) :: sigma, del_sigma
   kdim = size( uwnd, 3 )
   kdimm1 = kdim - 1
   kdimp1 = kdim + 1
-
 !-----------------------------------------------------------------------
 
 !        CODE VARIABLES     DESCRIPTION
@@ -328,7 +339,7 @@ if ( .not.do_mcm_mg_drag ) then
          &                xn,yn,taub,pfull, phalf,zfull,zhalf,vsamp,taus)
 
 !  calculate mountain gravity wave drag tendency contributions
-    call mgwd_tend (is,js,xn,yn,taub,phalf,taus,dtaux,dtauy, tausf)
+    call mgwd_tend (is,js,xn,yn,taub,pfull,phalf,taus,dtaux,dtauy,tausf)
 
 else if ( do_mcm_mg_drag ) then
 
@@ -878,11 +889,11 @@ end subroutine mgwd_satur_flux
 
 !#############################################################################
 
-subroutine mgwd_tend (is,js,xn,yn,taub,phalf,taus,dtaux,dtauy,tausf)
+subroutine mgwd_tend (is,js,xn,yn,taub,pfull,phalf,taus,dtaux,dtauy,tausf)
 
 !===================================================================
 ! Arguments (intent in)
- real, intent(in), dimension (:,:,:) :: phalf, taus
+ real, intent(in), dimension (:,:,:) :: pfull,phalf, taus
  real, intent(in), dimension (:,:) :: xn, yn, taub
  integer, intent(in)   :: is, js
 !===================================================================
@@ -893,6 +904,12 @@ subroutine mgwd_tend (is,js,xn,yn,taub,phalf,taus,dtaux,dtauy,tausf)
  real , dimension(size(phalf,1),size(phalf,2),size(phalf,3)) ::  dterm
  real , dimension(size(phalf,1),size(phalf,2),size(phalf,3)+1) ::  taup
  integer kdim, kdimp1
+
+ !  (Intent local) (trop/strat calc)
+ real , dimension(size(dtaux,1),size(dtaux,2)) ::  psurf,ptop_tp
+ integer, dimension (size(dtaux,1),size(dtaux,2)) :: kbtm
+ real pfull_av, ptop_av
+ integer ktop_tp
 !-----------------------------------------------------------------------
 !  type loop indicies
  integer k, kd
@@ -950,7 +967,96 @@ subroutine mgwd_tend (is,js,xn,yn,taub,phalf,taus,dtaux,dtauy,tausf)
 !            print *,'taup = ', taup(is,js,:)
 
 
-!     ***********************************************************
+!-----------------------------------------------------------------------
+!! Turning off drag for stratosphere/troposphere
+!-----------------------------------------------------------------------
+!  calculate bottom of low-leveles layer = lowest level unless kbot is present
+!  copied this code from the low level fraction calculation in mg_drag
+    !     if (present(kbot)) then
+    !        kbtm(:,:) = kbot(:,:)
+    !     else
+    !        kbtm(:,:) = kdim
+    !     endif
+    ! !  calculate top of low-level layer, first get surface p from phalf
+    !     if (present(kbot)) then
+    !        do j=1,jdim
+    !        do i=1,idim
+    !          psurf(i,j) = phalf(i,j,kbtm(i,j)+1)
+    !        end do
+    !        end do
+    !     else
+    !        psurf(:,:) = phalf(:,:,kdimp1)
+    !     endif
+        psurf(:,:)=pfull(:,:,kdim)
+!  Based on fraction of model atmosphere to be considered below the "tropopause"
+!  (input via namelist), find highest model level in the "troposphere".
+! This definition is to do with the distribution of drag, not the actual tropopause
+
+        ptop_tp(:,:) = (1.-tp_level)*psurf(:,:)
+        ptop_av=sum(ptop_tp(:,:))/size(ptop_tp(:,:))
+        do kd=kdim,1,-1
+            pfull_av=sum(pfull(:,:,kd))/size(pfull(:,:,kd))
+            if (pfull_av .ge. ptop_av) then
+                ktop_tp = kd
+            endif
+        end do
+! Turn off drag below the "tropopause"
+        if (no_trop_drag) then
+            do k=kdim,ktop_tp,-1
+                dtaux(:,:,k) = 0
+                dtauy(:,:,k) = 0
+            end do
+        endif
+
+! Turn off drag above the "tropopause"
+        if (no_strat_drag) then
+            do k=ktop_tp,1,-1
+                dtaux(:,:,k) = 0
+                dtauy(:,:,k) = 0
+            end do
+        endif
+
+!! Idealised Drag
+        if (do_idealised_NH) then
+            dtaux(:,:,:) = 0
+            dtauy(:,:,:) = 0
+
+            if (ideal_lat_cent_NH .GE. js .AND. ideal_lat_cent_NH .LE. js+size(dtaux, 2 )-1) then
+                dtaux(:, MOD(ideal_lat_cent_NH-1,size(dtaux,2))+1, ideal_pfull_cent) = ideal_strength
+                dtaux(:, MOD(ideal_lat_cent_NH-1,size(dtaux,2))+1, ideal_pfull_cent-1) = ideal_strength
+
+                if (MOD(ideal_lat_cent_NH,size(dtaux,2)) .NE. 0) then
+                    dtaux(:, MOD(ideal_lat_cent_NH-1,size(dtaux,2))+2, ideal_pfull_cent) = ideal_strength
+                    dtaux(:, MOD(ideal_lat_cent_NH-1,size(dtaux,2))+2, ideal_pfull_cent-1) = ideal_strength
+                endif
+            endif
+
+            if (ideal_lat_cent_NH .EQ. js-1 ) then
+                dtaux(:,1,ideal_pfull_cent) = ideal_strength
+                dtaux(:,1,ideal_pfull_cent-1) = ideal_strength
+            endif
+        endif
+
+        if (do_idealised_SH) then
+            dtaux(:,:,:) = 0
+            dtauy(:,:,:) = 0
+
+            if (ideal_lat_cent_SH .GE. js .AND. ideal_lat_cent_SH .LE. js+size(dtaux, 2 )-1) then
+                dtaux(:, MOD(ideal_lat_cent_SH-1,size(dtaux,2))+1, ideal_pfull_cent) = ideal_strength
+                dtaux(:, MOD(ideal_lat_cent_SH-1,size(dtaux,2))+1, ideal_pfull_cent-1) = ideal_strength
+
+                if (MOD(ideal_lat_cent_SH,size(dtaux,2)) .NE. 1) then
+                    dtaux(:, MOD(ideal_lat_cent_SH-1,size(dtaux,2)), ideal_pfull_cent) = ideal_strength
+                    dtaux(:, MOD(ideal_lat_cent_SH-1,size(dtaux,2)), ideal_pfull_cent-1) = ideal_strength
+                endif
+            endif
+
+            if (ideal_lat_cent_SH .EQ. js+size(dtaux,2)) then
+                dtaux(:,size(dtaux,2),ideal_pfull_cent) = ideal_strength
+                dtaux(:,size(dtaux,2),ideal_pfull_cent-1) = ideal_strength
+            endif
+        endif
+!-----------------------------------------------------------------------
 
 end subroutine mgwd_tend
 
